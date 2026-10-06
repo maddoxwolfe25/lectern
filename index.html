@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lectern</title>
+<meta name="description" content="A PDF reader that reads aloud. The page follows the voice.">
+<meta name="theme-color" content="#171c24">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' http: https: blob:; frame-src blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'">
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="edit.css">
+<script src="vendor/pdf.min.js"></script>
+</head>
+<body>
+
+<svg hidden xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 14 6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 10 6 6 6-6"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 9V4h10v5M7 17H4v-8h16v8h-3M7 14h10v6H7z"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><path d="M6 6h12v12H6z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-skip-back" viewBox="0 0 24 24"><path d="M6 5v14M18 5l-10 7 10 7z" fill="currentColor" stroke="currentColor" stroke-linejoin="round"/></symbol>
+  <symbol id="i-skip-fwd" viewBox="0 0 24 24"><path d="M18 5v14M6 5l10 7-10 7z" fill="currentColor" stroke="currentColor" stroke-linejoin="round"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-voice" viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 10v4"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3zM13 7l3 3"/></symbol>
+  <symbol id="i-cursor" viewBox="0 0 24 24"><path d="M6 4l12 8-5 1.5L10.5 19z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-highlight" viewBox="0 0 24 24"><path d="M9 15 5 19H3M9 15l8-8 3 3-8 8H9v-3zM14 7l3 3"/><path d="M4 21h16" stroke-width="3"/></symbol>
+  <symbol id="i-underline" viewBox="0 0 24 24"><path d="M7 4v7a5 5 0 0 0 10 0V4M5 20h14"/></symbol>
+  <symbol id="i-strike" viewBox="0 0 24 24"><path d="M4 12h16M16 7.5c-.6-2-2.3-3-4-3-2.3 0-4 1.2-4 3 0 1.3.8 2.2 2.4 2.8M8 16.5c.6 2 2.3 3 4 3 2.3 0 4-1.2 4-3 0-1.3-.8-2.2-2.4-2.8"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M3 21c3-1 4-3 4-3s3 1 5-1 6-9 6-9l-3-3s-7 4-9 6-1 5-1 5-2 1-2 5z"/></symbol>
+  <symbol id="i-square" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="1.5"/></symbol>
+  <symbol id="i-circle" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="7"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 19 19 5M19 5h-7M19 5v7"/></symbol>
+  <symbol id="i-sign" viewBox="0 0 24 24"><path d="M3 17c3 0 4-8 6-8s1 8 3 8 2-5 4-5 1 5 5 5"/><path d="M3 21h18"/></symbol>
+  <symbol id="i-eraser" viewBox="0 0 24 24"><path d="m7 20-4-4 10-10 6 6-8 8H7zM5 14l6 6M3 20h18"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M8 7H4V3M4.5 7A8 8 0 1 1 4 13"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M16 7h4V3M19.5 7A8 8 0 1 0 20 13"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-restore" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v5h5M12 8v4l3 2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-tab" viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/><path d="M17 11h4v6h-4" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+  <symbol id="i-redact" viewBox="0 0 24 24"><path d="M4 6h16M4 18h16"/><path d="M5 9.5h14v5H5z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-merge" viewBox="0 0 24 24"><path d="M4 5h6v6H4zM4 13h6v6H4zM14 9h6v6h-6z"/><path d="M10 8h2v8h-2M12 12h2"/></symbol>
+  <symbol id="i-markdown" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M6 15V9l3 3 3-3v6M16 9v6M14 13l2 2 2-2"/></symbol>
+  <symbol id="i-redact-area" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="1.5" stroke-dasharray="3 2.2"/><path d="M8 10h8v4H8z" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<div class="app" id="app" data-doc="none" data-playing="false">
+
+  <header class="toolbar" role="toolbar" aria-label="Document tools">
+    <div class="tb-group tb-left">
+      <button class="icon-btn" id="btnSidebar" title="Show or hide pages (S)" aria-label="Show or hide pages" aria-pressed="true"><svg><use href="#i-menu"/></svg></button>
+      <span class="wordmark">Lectern</span>
+      <button class="btn" id="btnOpen">Open PDF</button>
+      <input type="file" id="fileInput" accept="application/pdf,.pdf" hidden>
+      <button class="icon-btn" id="btnMerge" title="Merge PDFs into one file" aria-label="Merge PDFs"><svg><use href="#i-merge"/></svg></button>
+      <span class="doc-name" id="docName" title=""></span>
+    </div>
+
+    <div class="tb-group tb-center" id="navGroup">
+      <button class="icon-btn" id="btnPrev" title="Previous page (←)" aria-label="Previous page"><svg><use href="#i-prev"/></svg></button>
+      <label class="page-field" title="Page">
+        <input id="pageInput" type="number" min="1" value="1" aria-label="Page number">
+        <span class="page-count" id="pageCount">of 0</span>
+      </label>
+      <button class="icon-btn" id="btnNext" title="Next page (→)" aria-label="Next page"><svg><use href="#i-next"/></svg></button>
+      <span class="tb-sep" aria-hidden="true"></span>
+      <button class="icon-btn" id="btnZoomOut" title="Zoom out (−)" aria-label="Zoom out"><svg><use href="#i-minus"/></svg></button>
+      <select id="zoomSelect" class="select" aria-label="Zoom level">
+        <option value="width">Fit width</option>
+        <option value="page">Fit page</option>
+        <option value="0.5">50%</option>
+        <option value="0.75">75%</option>
+        <option value="1">100%</option>
+        <option value="1.25">125%</option>
+        <option value="1.5">150%</option>
+        <option value="2">200%</option>
+        <option value="3">300%</option>
+      </select>
+      <button class="icon-btn" id="btnZoomIn" title="Zoom in (+)" aria-label="Zoom in"><svg><use href="#i-plus"/></svg></button>
+      <button class="icon-btn" id="btnRotate" title="Rotate clockwise (R)" aria-label="Rotate clockwise"><svg><use href="#i-rotate"/></svg></button>
+    </div>
+
+    <div class="tb-group tb-right">
+      <form class="search" id="searchForm" role="search" autocomplete="off">
+        <svg class="search-icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="searchInput" type="search" placeholder="Find in document" aria-label="Find in document" enterkeyhint="search">
+        <span class="search-count" id="searchCount" aria-live="polite"></span>
+        <button type="button" class="icon-btn sm" id="searchPrev" title="Previous match (Shift+Enter)" aria-label="Previous match"><svg><use href="#i-up"/></svg></button>
+        <button type="button" class="icon-btn sm" id="searchNext" title="Next match (Enter)" aria-label="Next match"><svg><use href="#i-down"/></svg></button>
+      </form>
+      <button class="icon-btn" id="btnDownload" title="Save a copy" aria-label="Save a copy"><svg><use href="#i-download"/></svg></button>
+      <button class="icon-btn" id="btnMarkdown" title="Export the text as a Markdown (.md) file" aria-label="Export as Markdown"><svg><use href="#i-markdown"/></svg></button>
+      <button class="icon-btn" id="btnPrint" title="Print" aria-label="Print"><svg><use href="#i-print"/></svg></button>
+      <button class="icon-btn" id="btnFullscreen" title="Full screen (F)" aria-label="Full screen"><svg><use href="#i-expand"/></svg></button>
+      <button class="btn" id="btnEdit" aria-pressed="false" title="Comment, mark up, fill and sign (E)"><svg><use href="#i-edit"/></svg><span>Edit</span></button>
+      <button class="btn btn-accent" id="btnReadPanel" aria-pressed="true" title="Show or hide the Read aloud panel"><svg><use href="#i-voice"/></svg><span>Read aloud</span></button>
+    </div>
+  </header>
+
+  <div class="editbar" id="editbar" hidden role="toolbar" aria-label="Editing tools">
+    <div class="eb-group eb-tools">
+      <button class="tool" data-tool="select" aria-pressed="true" title="Select and move (V)"><svg><use href="#i-cursor"/></svg></button>
+      <span class="tb-sep" aria-hidden="true"></span>
+      <button class="tool" data-tool="mark-highlight" title="Highlight text (H)"><svg><use href="#i-highlight"/></svg></button>
+      <button class="tool" data-tool="mark-underline" title="Underline text (U)"><svg><use href="#i-underline"/></svg></button>
+      <button class="tool" data-tool="mark-strike" title="Strike through text"><svg><use href="#i-strike"/></svg></button>
+      <span class="tb-sep" aria-hidden="true"></span>
+      <button class="tool" data-tool="mark-redact" title="Redact text: select words to black them out permanently (X)"><svg><use href="#i-redact"/></svg></button>
+      <button class="tool" data-tool="redact-area" title="Redact an area: drag a box over anything"><svg><use href="#i-redact-area"/></svg></button>
+      <span class="tb-sep" aria-hidden="true"></span>
+      <button class="tool" data-tool="tab" title="Add a bookmark: a clickable marker on the edge of every page that jumps here (B)"><svg><use href="#i-tab"/></svg></button>
+      <button class="tool" data-tool="note" title="Add a comment (N)"><svg><use href="#i-note"/></svg></button>
+      <button class="tool" data-tool="text" title="Add text (T)"><svg><use href="#i-text"/></svg></button>
+      <button class="tool" data-tool="ink" title="Draw freehand (D)"><svg><use href="#i-pen"/></svg></button>
+      <button class="tool" data-tool="rect" title="Rectangle"><svg><use href="#i-square"/></svg></button>
+      <button class="tool" data-tool="ellipse" title="Ellipse"><svg><use href="#i-circle"/></svg></button>
+      <button class="tool" data-tool="arrow" title="Arrow"><svg><use href="#i-arrow"/></svg></button>
+      <button class="tool" data-tool="image" title="Sign: draw a signature and place it"><svg><use href="#i-sign"/></svg></button>
+      <span class="tb-sep" aria-hidden="true"></span>
+      <button class="tool" data-tool="eraser" title="Remove a mark (click it)"><svg><use href="#i-eraser"/></svg></button>
+    </div>
+    <div class="eb-group eb-options">
+      <div class="swatches" id="swatches" role="radiogroup" aria-label="Colour"></div>
+      <label class="eb-field" id="widthField"><span>Width</span><input type="range" id="strokeWidth" min="1" max="14" step="1" value="3" aria-label="Line width"></label>
+      <div class="eb-field redact-field" id="redactField" hidden>
+        <label for="redactQuery">Redact every</label>
+        <input type="text" id="redactQuery" placeholder="word or phrase" aria-label="Word or phrase to redact everywhere" enterkeyhint="go">
+        <button type="button" class="btn" id="redactAll">Mark all</button>
+      </div>
+      <label class="eb-field" id="sizeField"><span>Size</span>
+        <select id="fontSize" class="select" aria-label="Text size">
+          <option>10</option><option>12</option><option selected>14</option><option>18</option><option>24</option><option>32</option><option>48</option>
+        </select></label>
+    </div>
+    <div class="eb-group eb-right">
+      <button class="icon-btn" id="btnUndo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled><svg><use href="#i-undo"/></svg></button>
+      <button class="icon-btn" id="btnRedo" title="Redo (Ctrl+Y)" aria-label="Redo" disabled><svg><use href="#i-redo"/></svg></button>
+      <span class="eb-status" id="editStatus">No changes</span>
+      <button class="btn btn-accent" id="btnSave" title="Save the PDF with your edits (Ctrl+S)">Save PDF</button>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <aside class="sidebar" id="sidebar" aria-label="Pages and outline">
+      <div class="side-tabs" role="tablist">
+        <button role="tab" class="side-tab is-active" data-tab="thumbs" aria-selected="true">Pages</button>
+        <button role="tab" class="side-tab" data-tab="outline" id="outlineTab" aria-selected="false" hidden>Outline</button>
+        <button role="tab" class="side-tab" data-tab="tabs" id="tabsTab" aria-selected="false">Bookmarks</button>
+      </div>
+      <div class="side-pane" id="thumbs" role="tabpanel"></div>
+      <nav class="side-pane" id="outline" role="tabpanel" hidden></nav>
+      <div class="side-pane tabs-pane" id="tabs" role="tabpanel" hidden></div>
+    </aside>
+
+    <main class="viewer" id="viewer" tabindex="0" aria-label="Document">
+      <section class="empty" id="empty">
+        <div class="empty-card">
+          <p class="empty-eyebrow">Lectern</p>
+          <h1 class="empty-title">Open a PDF.<br><em>Press play.</em></h1>
+          <p class="empty-copy">The page follows the voice: the sentence being read is lit in amber, and you can click any line to start reading from there.</p>
+          <div class="empty-actions">
+            <button class="btn btn-accent lg" id="btnOpenEmpty">Open PDF</button>
+            <button class="btn lg" id="btnSample">Try the sample</button>
+            <button class="btn lg" id="btnMergeEmpty">Merge PDFs</button>
+          </div>
+          <p class="empty-note" id="emptyNote">Or drop a file anywhere on this window. Files stay on your computer.</p>
+        </div>
+      </section>
+      <div class="pages" id="pages"></div>
+    </main>
+
+    <aside class="read-panel" id="readPanel" aria-label="Read aloud">
+      <div class="rp-head">
+        <h2>Read aloud</h2>
+        <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+        <button class="icon-btn sm rp-close" id="btnReadClose" title="Hide panel" aria-label="Hide Read aloud panel"><svg><use href="#i-close"/></svg></button>
+      </div>
+      <p class="rp-status" id="rpStatus">Open a document to begin.</p>
+
+      <div class="rp-controls">
+        <label class="field">
+          <span class="field-label">Voice</span>
+          <select id="voiceSelect" class="select wide" aria-label="Voice"></select>
+          <span class="field-hint" id="voiceHint"></span>
+          <div class="voice-progress" id="voiceProgress" hidden><div class="bar" id="voiceProgressBar"></div><span id="voiceProgressText"></span></div>
+        </label>
+        <label class="field">
+          <span class="field-label">Speed <output id="rateVal">1.0×</output></span>
+          <input type="range" id="rate" min="0.5" max="2" step="0.05" value="1">
+        </label>
+        <label class="field" id="pitchField">
+          <span class="field-label">Pitch <output id="pitchVal">1.0</output></span>
+          <input type="range" id="pitch" min="0.5" max="1.5" step="0.05" value="1">
+        </label>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="follow" checked><span>Follow the voice</span></label>
+          <label class="check"><input type="checkbox" id="skipNumbers" checked><span>Skip page numbers</span></label>
+          <label class="check" title="Only passages you marked with the Highlight tool in Edit mode"><input type="checkbox" id="onlyHighlights"><span>Read only highlighted text</span></label>
+        </div>
+        <button class="btn wide" id="btnReadPage">Read from this page</button>
+      </div>
+
+      <div class="transcript-head"><span id="transcriptTitle">Transcript</span><span class="hint">Click a sentence to read from it</span></div>
+      <div class="transcript" id="transcript"></div>
+    </aside>
+
+  </div>
+
+  <footer class="transport" id="transport" aria-label="Playback">
+    <div class="transport-buttons">
+      <button class="icon-btn" id="btnPrevSentence" title="Previous sentence (Shift+←)" aria-label="Previous sentence"><svg><use href="#i-skip-back"/></svg></button>
+      <button class="play-btn" id="btnPlay" title="Play or pause (Space)" aria-label="Play">
+        <svg class="ic-play"><use href="#i-play"/></svg>
+        <svg class="ic-pause"><use href="#i-pause"/></svg>
+      </button>
+      <button class="icon-btn" id="btnNextSentence" title="Next sentence (Shift+→)" aria-label="Next sentence"><svg><use href="#i-skip-fwd"/></svg></button>
+      <button class="icon-btn" id="btnStop" title="Stop" aria-label="Stop"><svg><use href="#i-stop"/></svg></button>
+    </div>
+    <div class="now">
+      <div class="now-label" id="nowLabel">Ready</div>
+      <div class="now-text" id="nowText">Press play to start at the current page, or click a sentence.</div>
+    </div>
+    <div class="transport-meta">
+      <span id="transportPage"></span>
+      <span id="transportProgress"></span>
+    </div>
+  </footer>
+
+  <button class="read-sel" id="readSelBtn" hidden title="Read just the selected text (Space)"><svg><use href="#i-play"/></svg><span>Read selection</span></button>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="drop-overlay" id="dropOverlay" aria-hidden="true"><div>Drop the PDF to open it</div></div>
+
+  <div class="modal" id="mergeModal" hidden role="dialog" aria-modal="true" aria-labelledby="mergeTitle">
+    <div class="modal-card">
+      <h3 id="mergeTitle">Merge PDFs</h3>
+      <p class="modal-hint">Files are combined in the order shown. Each file becomes a bookmark in the merged document. The result opens in Lectern; use Save PDF to keep it.</p>
+      <ul class="merge-list" id="mergeList"></ul>
+      <div class="modal-actions">
+        <button class="btn" id="mergeAdd">Add files…</button>
+        <input type="file" id="mergeInput" accept="application/pdf,.pdf" multiple hidden>
+        <span class="spacer"></span>
+        <button class="btn" id="mergeCancel">Cancel</button>
+        <button class="btn btn-accent" id="mergeGo" disabled>Merge and open</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="sigModal" hidden role="dialog" aria-modal="true" aria-labelledby="sigTitle">
+    <div class="modal-card">
+      <h3 id="sigTitle">Draw your signature</h3>
+      <p class="modal-hint">Use the mouse, a pen or your finger. It is kept on this computer so you can reuse it.</p>
+      <canvas id="sigCanvas" width="640" height="220"></canvas>
+      <div class="modal-actions">
+        <button class="btn" id="sigClear">Clear</button>
+        <span class="spacer"></span>
+        <button class="btn" id="sigCancel">Cancel</button>
+        <button class="btn btn-accent" id="sigUse">Use signature</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/pdf-lib.min.js"></script>
+<script src="app.js"></script>
+<script src="edit.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Text files use LF in the repository; Windows checkouts keep working either way.
+* text=auto eol=lf
+
+# Never touch line endings in binaries.
+*.pdf binary
+*.png binary
+*.ico binary
+*.jpg binary
+*.woff2 binary
+*.bcmap binary
+*.onnx binary
+*.dll binary
+*.exe binary
+*.ort binary

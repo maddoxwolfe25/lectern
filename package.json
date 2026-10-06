@@ -60,7 +60,8 @@
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
       "createDesktopShortcut": true,
-      "shortcutName": "Lectern"
+      "shortcutName": "Lectern",
+      "artifactName": "Lectern-Setup-${version}.${ext}"
     },
     "portable": {
       "artifactName": "Lectern-${version}-portable.exe"

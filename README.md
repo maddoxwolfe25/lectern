@@ -19,7 +19,7 @@ Windows SmartScreen will warn that the publisher is unknown because the app is n
 
 1. Bump `version` in `package.json` (for example `1.1.1`) and commit.
 2. `npm run dist` builds the installer, the portable exe and `latest.yml` into `dist/`.
-3. Create a GitHub release tagged `v1.1.1` and attach `dist/Lectern Setup 1.1.1.exe`, `dist/Lectern Setup 1.1.1.exe.blockmap`, `dist/latest.yml` and the portable exe. Installed copies pick the update up within a few hours, or immediately via Help → Check for updates.
+3. Create a GitHub release tagged `v1.1.1` and attach `dist/Lectern-Setup-1.1.1.exe`, `dist/Lectern-Setup-1.1.1.exe.blockmap`, `dist/latest.yml` and the portable exe (keep the file names exactly as built: the manifest refers to them). Installed copies pick the update up within a few hours, or immediately via Help → Check for updates.
 
 The release must be a published release (not a draft or pre-release) in the public `maddoxwolfe25/lectern` repository for installed copies to see it.
 

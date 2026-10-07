@@ -844,6 +844,19 @@
     const targets = res.which === 'all' ? livePages() : res.which === 'current' ? [state.pages[state.current - 1]] : missing;
     if (!targets.length) { app.toast('Nothing to do.'); return; }
     const box = progressBox('Recognizing text');
+    try {
+      const done = await recognizePages(targets, box);
+      box.done();
+      app.refreshDirty?.();
+      app.toast(`Recognized text on ${done} page${done === 1 ? '' : 's'}. Save PDF to keep it searchable.`);
+    } catch (err) {
+      box.done();
+      app.toast('OCR failed: ' + (err.message || err));
+    }
+  }
+
+  // Recognize text on the given pages; returns how many were done. `box` is optional progress UI.
+  async function recognizePages(targets, box = { cancelled: false, set() {} }) {
     let worker = null;
     try {
       box.set(0, 'Loading the OCR engine…');
@@ -880,12 +893,7 @@
         app.applyOcr(p, items);
         done++;
       }
-      box.done();
-      app.refreshDirty?.();
-      app.toast(`Recognized text on ${done} page${done === 1 ? '' : 's'}. Save PDF to keep it searchable.`);
-    } catch (err) {
-      box.done();
-      app.toast('OCR failed: ' + (err.message || err));
+      return done;
     } finally { try { await worker?.terminate(); } catch { /* ignore */ } }
   }
 
@@ -955,6 +963,6 @@
     hasChanges: () => marksActive() || P.attachments.length > 0 || !!P.sanitize || !!P.compress || Object.keys(P.ocr).length > 0 || !!P.encrypt || P.externalDirty,
     changeCount: () => (marksActive() ? 1 : 0) + P.attachments.length + (P.sanitize ? 1 : 0) + (P.compress ? 1 : 0) + Object.keys(P.ocr).length + (P.encrypt ? 1 : 0) + (P.externalDirty ? 1 : 0),
     prepareExport, applyPageMarks, finalizeExport, postProcess,
-    debug: { docxBytes, docBlocks, textToPdf, parseRanges },
+    debug: { docxBytes, docBlocks, textToPdf, parseRanges, recognizePages, ocrItems: () => P.ocr },
   };
 })();

@@ -4,8 +4,10 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('lectern', {
   isDesktop: true,
   openDialog: () => ipcRenderer.invoke('open-dialog'),
-  // Open a document in another window (several PDFs side by side). Pass {path} or {name, data}.
-  openWindow: (payload) => ipcRenderer.invoke('open-window', payload || null),
+  // Open a document in another tab of this window. Pass {path} or {name, data}; null opens an empty tab.
+  openTab: (payload) => ipcRenderer.invoke('open-tab', payload || null),
+  openWindow: (payload) => ipcRenderer.invoke('open-tab', payload || null),   // kept for older callers
+  setDirty: (dirty) => ipcRenderer.send('tab-dirty', !!dirty),
   pathForFile: (file) => { try { return webUtils.getPathForFile(file) || ''; } catch { return ''; } },
   openDialogMulti: () => ipcRenderer.invoke('open-dialog-multi'),
   getInitialFile: () => ipcRenderer.invoke('initial-file'),

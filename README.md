@@ -26,7 +26,7 @@ The release must be a published release (not a draft or pre-release) in the publ
 ## Using it
 
 - **Open PDF** in the toolbar, drag a file onto the window, or `Ctrl+O`.
-- **Several documents at once**: when a document is already open, opening another one (toolbar, drag and drop, `Ctrl+O`, or Open with from Explorer) puts it in a new window, so you can arrange them side by side. `Ctrl+N` opens an empty window; the Window menu lists them; File → "Open PDF in this window" (`Ctrl+Shift+O`) replaces the current document instead.
+- **Tabs**: documents open in tabs across the top of the window, like Adobe Reader. When a document is already open, opening another one (toolbar, drag and drop, `Ctrl+O`, the + on the tab strip, or Open with from Explorer) opens a new tab. Click a tab to switch, drag to reorder, × or middle-click to close. `Ctrl+T` new tab, `Ctrl+Tab` / `Ctrl+Shift+Tab` to move between tabs, `Ctrl+W` close tab. A tab with unsaved edits shows an amber dot and asks before closing. File → "Open PDF in this tab" (`Ctrl+Shift+O`) replaces the current document; `Ctrl+N` opens a second window.
 - **Play** (or `Space`) reads from the current page. Click any sentence on the page, or in the transcript, to read from there.
 - **Skip buttons** or `Shift+←` / `Shift+→` move one sentence at a time.
 - **Voice, Speed, Pitch** are in the Read aloud panel. *Follow the voice* keeps the page scrolled to the sentence being read. *Skip page numbers* drops footers like "Page 3 of 12".

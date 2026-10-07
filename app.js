@@ -85,11 +85,10 @@
   async function openFile(file) {
     if (!file) return;
     if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') { toast('That file is not a PDF.'); return; }
-    if (state.pdf && desktop?.openWindow) {                 // a document is already open here: use another window
+    if (state.pdf && desktop?.openTab) {                    // a document is already open here: use another tab
       const p = desktop.pathForFile ? desktop.pathForFile(file) : '';
-      if (p) desktop.openWindow({ path: p });
-      else desktop.openWindow({ name: file.name, data: new Uint8Array(await file.arrayBuffer()) });
-      toast(`Opened ${file.name} in a new window.`);
+      if (p) desktop.openTab({ path: p });
+      else desktop.openTab({ name: file.name, data: new Uint8Array(await file.arrayBuffer()) });
       return;
     }
     openData(await file.arrayBuffer(), file.name);
@@ -1276,9 +1275,8 @@
   /* ================= Toolbar wiring ================= */
 
   const fromDesktop = (f) => {
-    if (state.pdf && !f.replace && desktop?.openWindow) {   // keep the current document; show the new one beside it
-      desktop.openWindow(f.path ? { path: f.path } : { name: f.name, data: f.data });
-      toast(`Opened ${f.name} in a new window.`);
+    if (state.pdf && !f.replace && desktop?.openTab) {      // keep the current document; open the new one in a tab
+      desktop.openTab(f.path ? { path: f.path } : { name: f.name, data: f.data });
       return;
     }
     openData(f.data.buffer.slice(f.data.byteOffset, f.data.byteOffset + f.data.byteLength), f.name, f.path || '');
@@ -1538,7 +1536,6 @@
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); el.searchInput.focus(); el.searchInput.select(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o' && !desktop) { e.preventDefault(); chooseFile(); return; }   // desktop: the File menu handles Ctrl+O
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n' && desktop?.openWindow) { e.preventDefault(); desktop.openWindow(null); return; }
     if (isTyping()) return;
     if (!state.pdf) return;
     switch (e.key) {

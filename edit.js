@@ -120,6 +120,7 @@
     const n = E.annots.length + Object.keys(E.formValues).length + state.pages.filter((p) => p.rot || p.deleted).length + (tabsChanged() ? 1 : 0) + (reordered() ? 1 : 0) + (app.pro?.changeCount?.() || 0);
     ui.status.textContent = !E.dirty ? (E.savedAt ? 'Saved' : 'No changes') : `${n} edit${n === 1 ? '' : 's'} not saved`;
     ui.status.classList.toggle('is-dirty', E.dirty);
+    app.desktop?.setDirty?.(E.dirty);
     persistDraft();
   }
 
@@ -1557,7 +1558,7 @@
   ui.redo.addEventListener('click', redo);
   $('btnSave').addEventListener('click', () => { finishTextEdit(); closeNotePopup(); app.saveDocument(); });
 
-  app.on('saved', () => { E.savedAt = Date.now(); E.dirty = false; ui.status.textContent = 'Saved'; ui.status.classList.remove('is-dirty'); });
+  app.on('saved', () => { E.savedAt = Date.now(); E.dirty = false; ui.status.textContent = 'Saved'; ui.status.classList.remove('is-dirty'); app.desktop?.setDirty?.(false); });
 
   document.addEventListener('keydown', (e) => {
     if (!state.pdf) return;

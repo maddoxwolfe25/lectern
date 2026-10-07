@@ -166,9 +166,9 @@
       const num = document.createElement('div'); num.className = 'page-num'; num.textContent = i + 1;
       div.append(canvas, layer, annotSvg, editHtml, formLayer, num);
       frag.append(div);
-      return { num: i + 1, pdfPage, el: div, canvas, layer, annotSvg, editHtml, formLayer, vp: null, rendered: false, rendering: false, renderTask: null,
+      return { num: i + 1, src: i, pdfPage, el: div, canvas, layer, annotSvg, editHtml, formLayer, vp: null, rendered: false, rendering: false, renderTask: null,
                textPromise: null, text: '', items: [], offsets: [], styles: {}, spans: [], sentences: [], thumb: null,
-               rot: 0, deleted: false };
+               rot: 0, deleted: false };          // src = index in the original file; num = position in the current order
     });
     el.pages.append(frag);
     el.app.dataset.doc = 'open';
@@ -219,7 +219,7 @@
   function computeScale() {
     const first = state.pages[0];
     if (!first) return 1;
-    const vp = first.pdfPage.getViewport({ scale: 1, rotation: state.rotation });
+    const vp = first.pdfPage.getViewport({ scale: 1, rotation: (first.pdfPage.rotate + state.rotation + first.rot) % 360 });
     const availW = el.viewer.clientWidth - 48;
     const availH = el.viewer.clientHeight - 40;
     if (state.zoom === 'width') return clamp(availW / vp.width, 0.2, 6);
@@ -234,7 +234,7 @@
     const anchorRel = anchor ? (el.viewer.scrollTop - anchor.el.offsetTop) / Math.max(1, anchor.el.offsetHeight) : 0;
     state.scale = computeScale();
     for (const p of state.pages) {
-      p.vp = p.pdfPage.getViewport({ scale: state.scale, rotation: (state.rotation + p.rot) % 360 });
+      p.vp = p.pdfPage.getViewport({ scale: state.scale, rotation: (p.pdfPage.rotate + state.rotation + p.rot) % 360 });   // intrinsic + view + per-page
       p.el.style.width = p.vp.width + 'px';
       p.el.style.height = p.vp.height + 'px';
       p.el.hidden = p.deleted;
@@ -315,6 +315,45 @@
 
   function renderVisible() {
     for (const n of state.visible) { const p = state.pages[n - 1]; if (p) renderPage(p); }
+  }
+
+  // Re-extract text and redraw one page (after OCR added text to it).
+  function rerenderPage(p) {
+    p.textPromise = null; p.sentences = []; p.items = []; p.offsets = [];
+    state.extractAllPromise = null;
+    invalidate(p);
+    if (state.visible.has(p.num)) renderPage(p);
+    extractAll().then(() => { updateProgressMeta(); if (state.current === p.num) renderTranscript(p.num); });
+  }
+  function applyOcr(p, items) { p.ocrItems = items; rerenderPage(p); }
+
+  // Put the pages in a new order (array of current page numbers). Marks and bookmarks follow their pages.
+  function reorderPages(order) {
+    if (!state.pdf || order.length !== state.pages.length) return;
+    player.stop(true);
+    const arr = order.map((n) => state.pages[n - 1]);
+    const map = new Map(arr.map((p, i) => [p.num, i + 1]));
+    arr.forEach((p, i) => {
+      p.num = i + 1; p.el.dataset.page = String(i + 1);
+      p.el.querySelector('.page-num').textContent = String(i + 1);
+      el.pages.append(p.el);
+    });
+    state.pages = arr;
+    state.speaking = null; state.search = { q: '', hits: [], idx: -1 }; el.searchCount.textContent = '';
+    state.sentenceOffsets = state.pages.map((p) => 0); state.extractAllPromise = null;
+    api.emit('pages-reordered', map);
+    layout(); buildThumbnails();
+    setCurrent(pageAtScroll()); renderTranscript(state.current); savePosition();
+    extractAll().then(updateProgressMeta);
+  }
+
+  async function saveBytesAs(bytes, name, kind = 'pdf') {
+    if (desktop) { const r = await desktop.saveFile(name, bytes, '', kind); if (r?.ok) toast('Saved ' + r.path); return !!r?.ok; }
+    const mime = { pdf: 'application/pdf', markdown: 'text/markdown', zip: 'application/zip', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', txt: 'text/plain', html: 'text/html', png: 'image/png', jpg: 'image/jpeg' }[kind] || 'application/octet-stream';
+    const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return true;
   }
 
   const pageObserver = new IntersectionObserver((entries) => {
@@ -459,7 +498,7 @@
       b.className = 'thumb' + (p.num === state.current ? ' is-current' : '') + (p.deleted ? ' is-deleted' : '');
       b.dataset.page = p.num;
       b.title = 'Page ' + p.num;
-      const vp = p.pdfPage.getViewport({ scale: 1, rotation: (state.rotation + p.rot) % 360 });
+      const vp = p.pdfPage.getViewport({ scale: 1, rotation: (p.pdfPage.rotate + state.rotation + p.rot) % 360 });
       const ph = document.createElement('div');
       ph.className = 'thumb-ph';
       ph.style.aspectRatio = `${vp.width} / ${vp.height}`;
@@ -477,7 +516,7 @@
   async function renderThumb(p) {
     if (!p || !p.thumb) return;
     const width = 150;
-    const rotation = (state.rotation + p.rot) % 360;
+    const rotation = (p.pdfPage.rotate + state.rotation + p.rot) % 360;
     const base = p.pdfPage.getViewport({ scale: 1, rotation });
     const vp = p.pdfPage.getViewport({ scale: width / base.width, rotation });
     const canvas = document.createElement('canvas');
@@ -597,7 +636,8 @@
     if (p.textPromise) return p.textPromise;
     p.textPromise = (async () => {
       let tc;
-      try { tc = await p.pdfPage.getTextContent(); } catch { tc = { items: [], styles: {} }; }
+      if (p.ocrItems) tc = { items: p.ocrItems, styles: { ocr: { fontFamily: 'sans-serif', ascent: 0.8, descent: -0.2 } } };   // recognised text from OCR
+      else { try { tc = await p.pdfPage.getTextContent(); } catch { tc = { items: [], styles: {} }; } }
       const raw = tc.items.filter((it) => it.str !== undefined);
       const items = [], offsets = [];
       let text = '';
@@ -1506,6 +1546,6 @@
     openUrl(params.get('file'));
   }
 
-  Object.assign(api, { state, el, settings, store, toast, openData, scrollToPage, setCurrent, layout, buildThumbnails, renderThumb, ensureText, saveDocument, player, reducedMotion, isTyping, goToDest, selectSideTab, findText, currentBytes, exportMarkdown, desktop });
+  Object.assign(api, { state, el, settings, store, toast, openData, scrollToPage, setCurrent, layout, buildThumbnails, renderThumb, ensureText, saveDocument, player, reducedMotion, isTyping, goToDest, selectSideTab, findText, currentBytes, exportMarkdown, desktop, reorderPages, rerenderPage, applyOcr, saveBytesAs, extractAll, segment, cleanText, isJunk });
   api.emit('ready', api);
 })();

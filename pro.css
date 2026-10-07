@@ -1,0 +1,66 @@
+/* Lectern — Tools menu, dialogs, page marks, stamps, retyped text */
+
+.tools-menu {
+  position: fixed; z-index: 55;
+  width: 372px; max-height: calc(100vh - 80px); overflow: auto;
+  background: var(--chrome-2); border: 1px solid var(--line-strong); border-radius: 12px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.55);
+  padding: 6px;
+}
+.tools-menu[hidden] { display: none; }
+.tm-title { padding: 10px 10px 4px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.tm-item {
+  display: grid; gap: 1px; width: 100%; text-align: left;
+  padding: 7px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text); cursor: pointer;
+}
+.tm-item:hover:not(:disabled) { background: var(--chrome-3); }
+.tm-item:disabled { opacity: 0.4; cursor: default; }
+.tm-label { font-weight: 500; font-size: 13.5px; }
+.tm-hint { font-size: 11.5px; color: var(--muted); }
+
+/* dialogs */
+.pro-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-bottom: 4px; }
+.pro-field { display: grid; gap: 5px; color: var(--text-2); font-size: 12.5px; }
+.pro-field.is-wide, .pro-field:has(textarea), .pro-field:has(input[type="file"]) { grid-column: 1 / -1; }
+.pro-field.is-check { grid-column: 1 / -1; grid-template-columns: auto 1fr; align-items: center; gap: 10px; color: var(--text); font-size: 13px; }
+.pro-field.is-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--lamp); }
+.pro-label { font-weight: 500; display: flex; justify-content: space-between; gap: 8px; }
+.pro-label output { color: var(--text); font-weight: 400; }
+.pro-field input:not([type="checkbox"]):not([type="range"]):not([type="file"]), .pro-field textarea {
+  height: 32px; padding: 0 8px; box-sizing: border-box;
+  background: var(--well); color: var(--text);
+  border: 1px solid var(--line); border-radius: 6px; font: inherit; font-size: 13px;
+}
+.pro-field textarea { height: auto; padding: 8px; resize: vertical; font-family: var(--ui); line-height: 1.4; }
+.pro-field input[type="file"] { font-size: 12.5px; color: var(--text-2); }
+.pro-field input[type="file"]::file-selector-button { height: 30px; margin-right: 10px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--chrome-3); color: var(--text); font: inherit; cursor: pointer; }
+.pro-hint { color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+.pro-static { grid-column: 1 / -1; margin: 0; color: var(--text-2); font-size: 13px; }
+.pro-modal .modal-card { max-height: calc(100vh - 40px); overflow: auto; }
+
+/* page marks preview */
+.marks-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.mark-text { position: absolute; color: #444; font-family: Helvetica, Arial, sans-serif; white-space: nowrap; line-height: 1; }
+.mark-wm { position: absolute; font-family: Helvetica, Arial, sans-serif; font-weight: 700; white-space: nowrap; line-height: 1; transform-origin: center; }
+
+/* stamps, links, retyped text */
+.edit-html .ann-stamp {
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid currentColor; border-radius: 6px;
+  font-family: Helvetica, Arial, sans-serif; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; white-space: nowrap; overflow: hidden; background: rgba(255,255,255,0.35);
+}
+.edit-html .ann-retype { background: #fff; white-space: pre; overflow: hidden; }
+.annot-svg .linkbox { display: none; }
+.app.editing .annot-svg .linkbox { display: block; }
+.app.editing[data-tool="retype"] .textLayer { pointer-events: auto; }
+.app.editing[data-tool="retype"] .textLayer span { cursor: text; }
+.app.editing[data-tool="link"] .edit-html, .app.editing[data-tool="stamp"] .edit-html { pointer-events: auto; cursor: crosshair; touch-action: none; }
+
+/* thumbnail drag to reorder */
+.thumb.is-dragging { opacity: 0.4; }
+.thumb.drop-before { box-shadow: inset 0 3px 0 var(--lamp); }
+.thumb.drop-after { box-shadow: inset 0 -3px 0 var(--lamp); }
+
+#btnTools span { margin-left: 2px; }
+@media (max-width: 900px) { #btnTools span { display: none; } #btnTools { padding: 0 8px; } .pro-form { grid-template-columns: 1fr; } }

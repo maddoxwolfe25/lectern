@@ -1,7 +1,7 @@
 {
   "name": "lectern",
   "productName": "Lectern",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A PDF reader that reads aloud. The page follows the voice.",
   "author": "Maddox Wolfe",
   "license": "MIT",
@@ -12,13 +12,19 @@
     "web": "npx -y http-server -p 8124 -c-1 .",
     "dist": "electron-builder --win --publish never",
     "dist:portable": "electron-builder --win portable --publish never",
-    "predist": "node scripts/fetch-piper.js"
+    "predist": "node scripts/fetch-piper.js && node scripts/fetch-ocr.js && node scripts/build-workers.js"
   },
   "devDependencies": {
+    "@neslinesli93/qpdf-wasm": "^0.3.0",
+    "@pdfme/pdf-lib": "^6.2.4",
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.2",
+    "jszip": "^3.10.2",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "3.11.174"
+    "pdfjs-dist": "3.11.174",
+    "tesseract.js": "^5.1.1",
+    "tesseract.js-core": "^5.1.1"
   },
   "build": {
     "appId": "com.maddoxwolfe.lectern",
@@ -34,6 +40,8 @@
       "edit.css",
       "app.js",
       "edit.js",
+      "pro.css",
+      "pro.js",
       "sample.pdf",
       "icon.png",
       "icon.ico",

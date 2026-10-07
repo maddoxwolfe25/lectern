@@ -367,16 +367,44 @@ if (!gotLock) {
     ipcMain.handle('open-dialog', () => openDialog(false));
     ipcMain.handle('open-dialog-multi', () => openDialog(true));
     ipcMain.handle('initial-file', () => { const f = pendingFile; pendingFile = null; return f ? readPdf(f) : null; });
+    const KIND_FILTERS = {
+      pdf: ['PDF documents', ['pdf']], markdown: ['Markdown', ['md']], zip: ['Zip archive', ['zip']], docx: ['Word document', ['docx']],
+      txt: ['Text file', ['txt']], html: ['Web page', ['html']], png: ['PNG image', ['png']], jpg: ['JPEG image', ['jpg', 'jpeg']],
+    };
     ipcMain.handle('save-file', async (_e, { name, data, defaultPath, kind }) => {
-      const isMd = kind === 'markdown';
+      const [label, exts] = KIND_FILTERS[kind] || KIND_FILTERS.pdf;
       const r = await dialog.showSaveDialog(win, {
-        title: isMd ? 'Save Markdown' : 'Save PDF',
-        defaultPath: defaultPath || name || (isMd ? 'document.md' : 'document.pdf'),
-        filters: isMd ? [{ name: 'Markdown', extensions: ['md'] }] : [{ name: 'PDF documents', extensions: ['pdf'] }],
+        title: kind === 'markdown' ? 'Save Markdown' : kind && kind !== 'pdf' ? `Save ${label}` : 'Save PDF',
+        defaultPath: defaultPath || name || `document.${exts[0]}`,
+        filters: [{ name: label, extensions: exts }],
       });
       if (r.canceled || !r.filePath) return { ok: false };
       try { fs.writeFileSync(r.filePath, typeof data === 'string' ? data : Buffer.from(data)); return { ok: true, path: r.filePath }; }
       catch (err) { dialog.showErrorBox('Could not save', err.message); return { ok: false }; }
+    });
+    // Save several files into a folder the user picks (page images, split documents).
+    ipcMain.handle('save-many', async (_e, { files, title }) => {
+      const r = await dialog.showOpenDialog(win, { title: title || 'Choose a folder', properties: ['openDirectory', 'createDirectory'] });
+      if (r.canceled || !r.filePaths[0]) return { ok: false };
+      const dir = r.filePaths[0];
+      let count = 0;
+      try {
+        for (const f of files) { fs.writeFileSync(path.join(dir, path.basename(f.name)), typeof f.data === 'string' ? f.data : Buffer.from(f.data)); count++; }
+        return { ok: true, dir, count };
+      } catch (err) { dialog.showErrorBox('Could not save', err.message); return { ok: false, error: err.message }; }
+    });
+    // Create a PDF from a web page by printing it in a hidden window.
+    ipcMain.handle('print-url', async (_e, { url }) => {
+      if (!/^https?:\/\//i.test(url)) throw new Error('Enter a full web address starting with http:// or https://');
+      const w = new BrowserWindow({ show: false, width: 1100, height: 1400, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, javascript: true, images: true } });
+      try {
+        w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+        await w.loadURL(url);
+        await new Promise((r) => setTimeout(r, 1500));                      // let web fonts and lazy images settle
+        const pdf = await w.webContents.printToPDF({ printBackground: true, pageSize: 'A4', margins: { marginType: 'default' }, preferCSSPageSize: false });
+        const title = (w.webContents.getTitle() || new URL(url).hostname).replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 80);
+        return { name: (title || 'web page') + '.pdf', data: pdf };
+      } finally { w.destroy(); }
     });
     ipcMain.handle('tts-list', () => listVoices());
     ipcMain.handle('tts-download', (e, id) => downloadVoice(String(id), e.sender));

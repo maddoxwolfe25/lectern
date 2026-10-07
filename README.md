@@ -46,6 +46,20 @@ The Voice list has two groups:
 - **Read selection**: select any text on the page with the mouse and press the "Read selection" button that pops up (or Space). Only that text is read; afterwards the document reading continues from where it was.
 - **Read only highlighted text**: tick this in the Read aloud panel to play through just the passages you marked with the Highlight tool in Edit mode, skipping everything else.
 
+### Tools menu
+
+The **Tools** button in the toolbar gathers the Acrobat-style document tools:
+
+- **Organize pages**: drag thumbnails in the Pages panel to reorder; insert pages from another PDF or a blank page; extract chosen pages to a new file; split into several files (every N pages or at pages you list). Rotate and remove pages from the thumbnails in Edit mode.
+- **Create a PDF**: from images (one page per image), from text or Markdown (headings, lists and paragraphs laid out on A4), or from a web page (desktop app).
+- **Export**: pages as PNG or JPEG images at 72, 150 or 300 dpi; plain text; a web page; a Word document; Markdown.
+- **Page marks**: watermark text with size, angle and opacity; header and footer text in three positions with tokens `{page}`, `{pages}`, `{date}`, `{title}` and `{bates}` for Bates numbering. Previewed on the pages, drawn on save.
+- **Protect and clean up**: password protection with printing, copying and editing permissions (AES-256, applied on save); remove hidden information (document properties, other people's comments, attachments, scripts, web links); reduce file size by recompressing photos and compacting the file.
+- **Recognize text (OCR)**: scanned pages get a real text layer so they can be searched, selected, redacted and read aloud. English, runs offline, 2 to 6 seconds a page. Saved into the PDF as invisible text.
+- **Attachments**: see and save files embedded in the PDF, or attach your own.
+
+In the Edit bar there are also **Stamps** (Approved, Draft, Confidential and so on, or your own text), a **Link** tool (drag a box, then choose a page or web address), and **Edit text**: click a line to retype it, or use **Find and replace** to change a word everywhere. Retyped lines use the closest standard font (Helvetica, Times or Courier, bold or italic as detected), so they match well in most documents but not perfectly in all.
+
 ### Merge PDFs and export Markdown
 
 - **Merge PDFs** (the merge button next to Open, or on the start screen): add files with the file picker or by dropping them on the dialog, put them in order, and merge. The open document, including unsaved edits, is included first. Each source file becomes a bookmark in the result, which opens in Lectern ready to Save PDF.

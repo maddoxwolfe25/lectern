@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('lectern', {
   getInitialFile: () => ipcRenderer.invoke('initial-file'),
   saveFile: (name, data, defaultPath, kind) => ipcRenderer.invoke('save-file', { name, data, defaultPath, kind }),
   onOpenFile: (cb) => ipcRenderer.on('open-file', (_event, payload) => cb(payload)),
+  saveMany: (files, title) => ipcRenderer.invoke('save-many', { files, title }),
+  printUrl: (url) => ipcRenderer.invoke('print-url', { url }),
 
   // Offline neural voices (Piper). Voices download once into the app's data folder.
   tts: {

@@ -4,3 +4,6 @@ vendor/piper/
 *.log
 .DS_Store
 Thumbs.db
+vendor/ocr/
+vendor/encrypt-worker.js
+vendor/qpdf.wasm

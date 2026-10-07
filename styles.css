@@ -172,6 +172,9 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .app.hide-read .body { grid-template-columns: var(--sidebar-w) 1fr 0; }
 .app.hide-sidebar.hide-read .body { grid-template-columns: 0 1fr 0; }
 .app.hide-sidebar .sidebar, .app.hide-read .read-panel { display: none; }
+.sidebar { grid-column: 1; }
+.viewer { grid-column: 2; }
+.read-panel { grid-column: 3; }       /* explicit columns: a hidden panel must not shift the viewer into its 0-width track */
 
 /* ---------- Sidebar ---------- */
 

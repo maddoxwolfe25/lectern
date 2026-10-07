@@ -12,7 +12,7 @@
     docName: $('docName'), pageInput: $('pageInput'), pageCount: $('pageCount'), zoomSelect: $('zoomSelect'),
     thumbs: $('thumbs'), outline: $('outline'), outlineTab: $('outlineTab'),
     rpStatus: $('rpStatus'), voiceSelect: $('voiceSelect'), rate: $('rate'), rateVal: $('rateVal'),
-    pitch: $('pitch'), pitchVal: $('pitchVal'), pitchField: $('pitchField'), follow: $('follow'), skipNumbers: $('skipNumbers'),
+    pitch: $('pitch'), pitchVal: $('pitchVal'), pitchField: $('pitchField'), follow: $('follow'), skipNumbers: $('skipNumbers'), skipFootnotes: $('skipFootnotes'),
     onlyHighlights: $('onlyHighlights'), voiceHint: $('voiceHint'), voiceProgress: $('voiceProgress'), voiceProgressBar: $('voiceProgressBar'), voiceProgressText: $('voiceProgressText'),
     readSelBtn: $('readSelBtn'),
     transcript: $('transcript'), transcriptTitle: $('transcriptTitle'),
@@ -39,7 +39,7 @@
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
   };
   const settings = Object.assign(
-    { voice: '', rate: 1, pitch: 1, follow: true, skipNumbers: true, onlyHighlights: false, sidebar: true, readPanel: true, zoom: 'width' },
+    { voice: '', rate: 1, pitch: 1, follow: true, skipNumbers: true, skipFootnotes: true, onlyHighlights: false, sidebar: true, readPanel: true, zoom: 'width' },
     store.get('lectern:settings', {})
   );
   const saveSettings = () => { const { onlyHighlights, ...persisted } = settings; store.set('lectern:settings', persisted); };
@@ -664,9 +664,38 @@
         else if (block) text += '\n';
       }
       p.items = items; p.offsets = offsets; p.text = text; p.styles = tc.styles || {};
-      p.sentences = segment(text).map((s, i) => {
-        const raw = text.slice(s.start, s.end);
-        return { page: p.num, i, start: s.start, end: s.end, text: cleanText(raw), itemIdxs: itemsInRange(p, s.start, s.end) };
+
+      // Footnotes and reference markers. Body size = the font size that covers the median character.
+      // A footnote block is small text sitting below every line of body text in the lower part of the page;
+      // a marker is a tiny run of digits or symbols (superscripts). Markers are blanked in the spoken text.
+      const fsOf = (it) => Math.hypot(it.transform[2], it.transform[3]) || it.height || 0;
+      const sized = items.filter((it) => it.str.trim());
+      const weights = sized.map((it) => ({ s: fsOf(it), n: it.str.length })).sort((a, b) => a.s - b.s);
+      const totalChars = weights.reduce((a, x) => a + x.n, 0);
+      let acc = 0, body = 0;
+      for (const w of weights) { acc += w.n; if (acc >= totalChars / 2) { body = w.s; break; } }
+      const spoken = text.split('');
+      if (body > 0) {
+        const view = p.pdfPage.view, pageH = view[3] - view[1], bottom = view[1];
+        const small = (it) => { const s = fsOf(it); return s > 0 && s <= body * 0.82; };
+        const bodyMinY = Math.min(Infinity, ...sized.filter((it) => !small(it) && it.transform[5] > bottom + pageH * 0.06).map((it) => it.transform[5]));
+        items.forEach((it, i) => {
+          if (!it.str.trim()) return;
+          if (fsOf(it) <= body * 0.72 && /^[\d*†‡§¶]{1,3}$/.test(it.str.trim())) {
+            it.marker = true;
+            for (let k = offsets[i]; k < offsets[i] + it.str.length; k++) spoken[k] = ' ';
+            return;
+          }
+          const y = it.transform[5];
+          if (small(it) && y < bodyMinY - 2 && y < bottom + pageH * 0.4) it.footnote = true;
+        });
+      }
+      p.spoken = spoken.join('');
+
+      p.sentences = segment(p.spoken).map((s, i) => {
+        const itemIdxs = itemsInRange(p, s.start, s.end);
+        const real = itemIdxs.filter((k) => !items[k].marker);
+        return { page: p.num, i, start: s.start, end: s.end, text: cleanText(p.spoken.slice(s.start, s.end)), itemIdxs, footnote: real.length > 0 && real.every((k) => items[k].footnote) };
       }).filter((s) => s.text);
       p.sentences.forEach((s, i) => { s.i = i; });
       return p;
@@ -776,7 +805,10 @@
       const id = settings.voice.slice(6);
       return neural.available && neural.installed(id) ? id : null;
     },
-    passes(s) { return !settings.onlyHighlights || !api.sentenceFilter || api.sentenceFilter(s); },
+    passes(s) {
+      if (settings.skipFootnotes && s.footnote) return false;
+      return !settings.onlyHighlights || !api.sentenceFilter || api.sentenceFilter(s);
+    },
 
     async sentenceAt(c) {
       if (this.queue) return this.queue[c.i] || null;
@@ -1056,7 +1088,7 @@
       const para = document.createElement('p');
       para.textContent = s.text;
       para.dataset.i = s.i;
-      if (isJunk(s.text)) para.classList.add('is-junk');
+      if (isJunk(s.text) || s.footnote) { para.classList.add('is-junk'); para.title = s.footnote ? 'Footnote (skipped when Skip footnotes is on)' : 'Page number (skipped when Skip page numbers is on)'; }
       para.addEventListener('click', () => player.start({ page: n, i: s.i }));
       frag.append(para);
     }
@@ -1400,7 +1432,7 @@
   /* --- read panel controls --- */
 
   el.rate.value = settings.rate; el.pitch.value = settings.pitch;
-  el.follow.checked = settings.follow; el.skipNumbers.checked = settings.skipNumbers;
+  el.follow.checked = settings.follow; el.skipNumbers.checked = settings.skipNumbers; el.skipFootnotes.checked = settings.skipFootnotes;
   const fmtRate = () => { el.rateVal.textContent = Number(settings.rate).toFixed(2).replace(/0$/, '') + '×'; };
   const fmtPitch = () => { el.pitchVal.textContent = Number(settings.pitch).toFixed(2).replace(/0$/, ''); };
   fmtRate(); fmtPitch();
@@ -1414,6 +1446,7 @@
   el.voiceSelect.addEventListener('change', () => chooseVoice(el.voiceSelect.value, settings.voice));
   el.follow.addEventListener('change', () => { settings.follow = el.follow.checked; saveSettings(); if (settings.follow && state.speaking) revealSentence(state.speaking); });
   el.skipNumbers.addEventListener('change', () => { settings.skipNumbers = el.skipNumbers.checked; saveSettings(); });
+  el.skipFootnotes.addEventListener('change', () => { settings.skipFootnotes = el.skipFootnotes.checked; saveSettings(); if (player.status === 'playing' && !player.queue) { player.cancelSpeech(); player.speak(); } });
   el.onlyHighlights.addEventListener('change', () => {
     if (el.onlyHighlights.checked && api.hasHighlights && !api.hasHighlights()) {
       el.onlyHighlights.checked = false;

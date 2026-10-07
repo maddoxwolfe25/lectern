@@ -45,6 +45,7 @@ The Voice list has two groups:
 
 - **Read selection**: select any text on the page with the mouse and press the "Read selection" button that pops up (or Space). Only that text is read; afterwards the document reading continues from where it was.
 - **Read only highlighted text**: tick this in the Read aloud panel to play through just the passages you marked with the Highlight tool in Edit mode, skipping everything else.
+- **Skip footnotes** (on by default): footnote blocks (small text sitting below the body text at the foot of a page) and the little superscript reference numbers in the body are left out of the reading. They stay searchable and show dimmed in the transcript. **Skip page numbers** does the same for footers like "Page 3 of 12".
 
 ### Tools menu
 

@@ -283,6 +283,14 @@ function createWindow() {
             catch (err) { probe.tts = { error: err.message }; errors.push('tts: ' + err.message); }
           } else probe.tts = { error: 'no installed voices' };
         }
+        if (process.argv.includes('--smoke-play')) {
+          // synthesise in the main process via the bridge, then actually play the clip in the renderer
+          const installed = listVoices().voices.filter((v) => v.installed);
+          probe.play = installed.length ? await win.webContents.executeJavaScript(
+            `(async () => { try { const data = await window.lectern.tts.synth(${JSON.stringify(installed[0].id)}, 'Playback test.'); const url = URL.createObjectURL(new Blob([data], { type: 'audio/wav' })); const a = new Audio(url); const result = await new Promise((resolve) => { const t = setTimeout(() => resolve('timeout'), 8000); a.onplaying = () => { clearTimeout(t); resolve('playing'); }; a.onerror = () => { clearTimeout(t); resolve('error:' + (a.error && a.error.code)); }; a.play().catch((e) => { clearTimeout(t); resolve('play rejected: ' + e.message); }); }); a.pause(); return { result, bytes: data.length }; } catch (err) { return { error: String(err && err.message || err) }; } })()`
+          ).catch((e) => ({ error: String(e) })) : { error: 'no installed voices' };
+          if (probe.play.error || probe.play.result !== 'playing') errors.push('play: ' + (probe.play.error || probe.play.result));
+        }
         if (process.argv.includes('--smoke-ocr')) {
           probe.ocr = await win.webContents.executeJavaScript(
             `(async () => { const app = window.LecternApp; const t0 = performance.now(); try { const n = await app.pro.debug.recognizePages([app.state.pages[0]]); const items = app.pro.debug.ocrItems()[0] || []; return { pages: n, words: items.filter((i) => i.str.trim()).length, sample: items.slice(0, 6).map((i) => i.str).join(''), ms: Math.round(performance.now() - t0) }; } catch (err) { return { error: String(err && err.message || err) }; } })()`

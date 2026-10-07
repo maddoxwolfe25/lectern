@@ -6,7 +6,7 @@
 <title>Lectern</title>
 <meta name="description" content="A PDF reader that reads aloud. The page follows the voice.">
 <meta name="theme-color" content="#171c24">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' http: https: blob:; frame-src blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self' http: https: blob:; frame-src blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'">
 <link rel="stylesheet" href="vendor/fonts/fonts.css">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="edit.css">
@@ -230,6 +230,7 @@
         <div class="checks">
           <label class="check"><input type="checkbox" id="follow" checked><span>Follow the voice</span></label>
           <label class="check"><input type="checkbox" id="skipNumbers" checked><span>Skip page numbers</span></label>
+          <label class="check" title="Small text at the foot of the page, and the little reference numbers in the body"><input type="checkbox" id="skipFootnotes" checked><span>Skip footnotes</span></label>
           <label class="check" title="Only passages you marked with the Highlight tool in Edit mode"><input type="checkbox" id="onlyHighlights"><span>Read only highlighted text</span></label>
         </div>
         <button class="btn wide" id="btnReadPage">Read from this page</button>

@@ -42,6 +42,7 @@ html, body {
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+body > svg[hidden] { display: none; }   /* the icon sprite: inline SVG ignores the hidden attribute and would take up a line */
 
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
@@ -51,6 +52,11 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   grid-template-rows: var(--toolbar-h) auto 1fr auto;
   overflow: hidden;
 }
+/* Explicit rows: when the edit bar or player bar is hidden, the document area must stay in the 1fr row. */
+.app > .toolbar { grid-row: 1; }
+.app > .editbar { grid-row: 2; }
+.app > .body { grid-row: 3; min-height: 0; }
+.app > .transport { grid-row: 4; }
 
 /* ---------- Toolbar ---------- */
 

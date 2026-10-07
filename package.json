@@ -1,7 +1,7 @@
 {
   "name": "lectern",
   "productName": "Lectern",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "A PDF reader that reads aloud. The page follows the voice.",
   "author": "Maddox Wolfe",
   "license": "MIT",

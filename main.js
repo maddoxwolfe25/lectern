@@ -9,6 +9,20 @@ const { autoUpdater } = require('electron-updater');
 
 app.setName('Lectern');                       // same data folder in development and when packaged
 
+const APP_ROOT = __dirname;
+
+/* ======================= Windows (one document per window) ======================= */
+
+const windows = new Set();
+const pendingOpens = new Map();              // window id -> file payload or path to open once the renderer is ready
+let mainWin = null;                           // the first window; the build checks run against it
+const focusedWin = () => BrowserWindow.getFocusedWindow() || [...windows][0] || null;
+const msg = (opts) => { const w = focusedWin(); return w ? dialog.showMessageBox(w, opts) : dialog.showMessageBox(opts); };
+async function hasDocument(w) {
+  try { return !!(await w.webContents.executeJavaScript('!!(window.LecternApp && window.LecternApp.state && window.LecternApp.state.pdf)')); }
+  catch { return false; }
+}
+
 /* ======================= Updates (GitHub Releases) ======================= */
 
 autoUpdater.autoDownload = true;
@@ -16,9 +30,9 @@ autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.logger = null;
 let updatePromptShown = false;
 autoUpdater.on('update-downloaded', (info) => {
-  if (!win || updatePromptShown) return;
+  if (!windows.size || updatePromptShown) return;
   updatePromptShown = true;
-  dialog.showMessageBox(win, {
+  msg({
     type: 'info', title: 'Update ready',
     message: `Lectern ${info.version} is ready to install.`,
     detail: 'Restart now to update, or it will install the next time you close Lectern.',
@@ -33,22 +47,18 @@ function startUpdateChecks() {
   setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 6 * 60 * 60 * 1000);
 }
 async function checkForUpdatesManually() {
-  if (!app.isPackaged) { dialog.showMessageBox(win, { type: 'info', title: 'Updates', message: 'Updates only apply to the installed app.' }); return; }
-  if (process.env.PORTABLE_EXECUTABLE_DIR) { dialog.showMessageBox(win, { type: 'info', title: 'Updates', message: 'The portable version does not update itself.', detail: 'Download the newest Lectern-portable.exe from the releases page and replace this file.' }); return; }
+  if (!app.isPackaged) { msg({ type: 'info', title: 'Updates', message: 'Updates only apply to the installed app.' }); return; }
+  if (process.env.PORTABLE_EXECUTABLE_DIR) { msg({ type: 'info', title: 'Updates', message: 'The portable version does not update itself.', detail: 'Download the newest Lectern-portable.exe from the releases page and replace this file.' }); return; }
   try {
     const r = await autoUpdater.checkForUpdates();
     const remote = r?.updateInfo?.version;
     const available = typeof r?.isUpdateAvailable === 'boolean' ? r.isUpdateAvailable : (remote && remote !== app.getVersion());
-    if (available) dialog.showMessageBox(win, { type: 'info', title: 'Update found', message: `Lectern ${remote} is downloading.`, detail: 'You will be asked to restart when it is ready.' });
-    else dialog.showMessageBox(win, { type: 'info', title: 'Up to date', message: `Lectern ${app.getVersion()} is the latest version.` });
+    if (available) msg({ type: 'info', title: 'Update found', message: `Lectern ${remote} is downloading.`, detail: 'You will be asked to restart when it is ready.' });
+    else msg({ type: 'info', title: 'Up to date', message: `Lectern ${app.getVersion()} is the latest version.` });
   } catch (err) {
-    dialog.showMessageBox(win, { type: 'warning', title: 'Could not check for updates', message: err?.message || String(err) });
+    msg({ type: 'warning', title: 'Could not check for updates', message: err?.message || String(err) });
   }
 }
-
-const APP_ROOT = __dirname;
-let win = null;
-let pendingFile = null;
 
 // Serve the renderer over a privileged custom scheme so fetch(), workers and localStorage
 // behave exactly as they do on the web version.
@@ -69,17 +79,22 @@ function readPdf(filePath) {
   }
 }
 
-function sendFile(filePath) {
+// Open a path: in the focused window if it is empty, otherwise in a new window.
+async function openPath(filePath, { replace = false } = {}) {
+  const w = focusedWin();
+  if (!w) { createWindow({ open: filePath }); return; }
+  if (!replace && await hasDocument(w)) { createWindow({ open: filePath }); return; }
   const payload = readPdf(filePath);
-  if (payload && win) win.webContents.send('open-file', payload);
+  if (payload) w.webContents.send('open-file', { ...payload, replace: true });
 }
 
-async function openDialog(multi = false) {
-  const r = await dialog.showOpenDialog(win, {
+async function openDialog(multi = false, parent = focusedWin()) {
+  const opts = {
     title: multi ? 'Choose PDFs to merge' : 'Open PDF',
     filters: [{ name: 'PDF documents', extensions: ['pdf'] }],
     properties: multi ? ['openFile', 'multiSelections'] : ['openFile'],
-  });
+  };
+  const r = parent ? await dialog.showOpenDialog(parent, opts) : await dialog.showOpenDialog(opts);
   if (r.canceled || !r.filePaths[0]) return null;
   if (multi) return r.filePaths.map(readPdf).filter(Boolean);
   app.addRecentDocument(r.filePaths[0]);
@@ -238,11 +253,14 @@ function synthesize(voice, text) {
   });
 }
 
-/* ======================= Window and app lifecycle ======================= */
+/* ======================= Window creation ======================= */
 
-function createWindow() {
-  win = new BrowserWindow({
+function createWindow({ open = null } = {}) {
+  const prev = focusedWin();
+  const bounds = prev && !prev.isDestroyed() ? prev.getBounds() : null;
+  const win = new BrowserWindow({
     width: 1380, height: 880, minWidth: 720, minHeight: 480,
+    ...(bounds ? { x: bounds.x + 32, y: bounds.y + 32, width: bounds.width, height: bounds.height } : {}),
     backgroundColor: '#171c24',
     title: 'Lectern',
     icon: path.join(APP_ROOT, 'icon.png'),
@@ -256,18 +274,22 @@ function createWindow() {
       spellcheck: false,
     },
   });
+  windows.add(win);
+  if (!mainWin) mainWin = win;
+  if (open) pendingOpens.set(win.id, open);
   win.once('ready-to-show', () => win.show());
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:|^mailto:/i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
-  win.on('closed', () => { win = null; });
+  win.on('page-title-updated', () => buildMenu());
+  win.on('focus', () => buildMenu());
+  win.on('closed', () => { windows.delete(win); pendingOpens.delete(win.id); if (mainWin === win) mainWin = null; buildMenu(); });
 
   // `lectern --smoke [file.pdf]` boots headlessly, reports renderer errors, and exits: used by the build check.
-  // `--smoke-tts` additionally synthesises a sentence with the first installed natural voice;
+  // `--smoke-tts` synthesises a sentence; `--smoke-play` also plays it; `--smoke-ocr` recognises page 1;
   // `--smoke-update` asks the update feed what the latest version is (without downloading).
-  const smoke = process.argv.some((a) => a.startsWith('--smoke'));
-  if (smoke) {
+  if (win === mainWin && process.argv.some((a) => a.startsWith('--smoke'))) {
     const errors = [];
     win.webContents.on('console-message', (_e, level, message) => { if (level >= 2) errors.push(message); });
     win.webContents.on('did-fail-load', (_e, code, desc) => errors.push(`did-fail-load ${code} ${desc}`));
@@ -284,7 +306,6 @@ function createWindow() {
           } else probe.tts = { error: 'no installed voices' };
         }
         if (process.argv.includes('--smoke-play')) {
-          // synthesise in the main process via the bridge, then actually play the clip in the renderer
           const installed = listVoices().voices.filter((v) => v.installed);
           probe.play = installed.length ? await win.webContents.executeJavaScript(
             `(async () => { try { const data = await window.lectern.tts.synth(${JSON.stringify(installed[0].id)}, 'Playback test.'); const url = URL.createObjectURL(new Blob([data], { type: 'audio/wav' })); const a = new Audio(url); const result = await new Promise((resolve) => { const t = setTimeout(() => resolve('timeout'), 8000); a.onplaying = () => { clearTimeout(t); resolve('playing'); }; a.onerror = () => { clearTimeout(t); resolve('error:' + (a.error && a.error.code)); }; a.play().catch((e) => { clearTimeout(t); resolve('play rejected: ' + e.message); }); }); a.pause(); return { result, bytes: data.length }; } catch (err) { return { error: String(err && err.message || err) }; } })()`
@@ -304,6 +325,12 @@ function createWindow() {
             probe.update = { current: app.getVersion(), latest: r?.updateInfo?.version, available: r?.isUpdateAvailable, files: (r?.updateInfo?.files || []).map((f) => f.url) };
           } catch (err) { probe.update = { error: err?.message || String(err) }; errors.push('update: ' + (err?.message || err)); }
         }
+        if (process.argv.includes('--smoke-windows')) {
+          const second = createWindow({ open: pendingOpensSource || null });
+          await new Promise((r) => second.webContents.once('did-finish-load', r));
+          await new Promise((r) => setTimeout(r, 2500));
+          probe.windows = { count: windows.size, secondDoc: await second.webContents.executeJavaScript('document.title').catch((e) => String(e)) };
+        }
         console.log('SMOKE ' + JSON.stringify({ ...probe, errors }));
         stopEngines();
         app.exit(errors.length || probe.error ? 1 : 0);
@@ -312,17 +339,28 @@ function createWindow() {
   }
 
   win.loadURL('app://lectern/index.html');
+  buildMenu();
+  return win;
 }
+let pendingOpensSource = null;
 
 function buildMenu() {
+  const windowItems = [...windows].filter((w) => !w.isDestroyed()).map((w) => ({
+    label: (w.getTitle() || 'Lectern').replace(/ · Lectern$/, '') || 'Lectern',
+    type: 'checkbox', checked: w === BrowserWindow.getFocusedWindow(),
+    click: () => { if (w.isMinimized()) w.restore(); w.focus(); },
+  }));
   const template = [
     {
       label: '&File',
       submenu: [
-        { label: 'Open PDF…', accelerator: 'CmdOrCtrl+O', click: async () => { const f = await openDialog(); if (f && win) win.webContents.send('open-file', f); } },
+        { label: 'Open PDF…', accelerator: 'CmdOrCtrl+O', click: async () => { const f = await openDialog(); if (f) openPath(f.path); } },
+        { label: 'Open PDF in this window…', accelerator: 'CmdOrCtrl+Shift+O', click: async () => { const f = await openDialog(); if (f) openPath(f.path, { replace: true }); } },
+        { label: 'New window', accelerator: 'CmdOrCtrl+N', click: () => createWindow() },
         { type: 'separator' },
         { label: 'Open voices folder', click: () => { fs.mkdirSync(voicesDir(), { recursive: true }); shell.openPath(voicesDir()); } },
         { type: 'separator' },
+        { label: 'Close window', accelerator: 'CmdOrCtrl+W', click: () => focusedWin()?.close() },
         { role: 'quit', label: 'Exit' },
       ],
     },
@@ -336,6 +374,14 @@ function buildMenu() {
       ],
     },
     {
+      label: '&Window',
+      submenu: [
+        { role: 'minimize' },
+        { type: 'separator' },
+        ...(windowItems.length ? windowItems : [{ label: 'No windows', enabled: false }]),
+      ],
+    },
+    {
       label: '&Help',
       submenu: [
         { label: 'Check for updates…', click: checkForUpdatesManually },
@@ -343,10 +389,10 @@ function buildMenu() {
         { type: 'separator' },
         {
           label: 'About Lectern',
-          click: () => dialog.showMessageBox(win, {
+          click: () => msg({
             type: 'info', title: 'About Lectern',
             message: `Lectern ${app.getVersion()}`,
-            detail: 'A PDF reader that reads aloud. System voices come from Windows; natural voices use the open-source Piper engine and run offline on this computer.\n\nShortcuts: Space play/pause · Shift+←/→ sentence · ←/→ page · Ctrl+F find · Ctrl+O open · E edit.',
+            detail: 'A PDF reader that reads aloud. System voices come from Windows; natural voices use the open-source Piper engine and run offline on this computer.\n\nShortcuts: Space play/pause · Shift+←/→ sentence · ←/→ page · Ctrl+F find · Ctrl+O open · Ctrl+N new window · E edit.',
           }),
         },
       ],
@@ -355,16 +401,16 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+/* ======================= App lifecycle ======================= */
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', (_e, argv) => {
-    if (!win) return;
-    if (win.isMinimized()) win.restore();
-    win.focus();
     const f = pdfFromArgv(argv);
-    if (f) sendFile(f);
+    if (f) openPath(f);
+    else { const w = focusedWin(); if (w) { if (w.isMinimized()) w.restore(); w.focus(); } else createWindow(); }
   });
 
   app.whenReady().then(() => {
@@ -378,16 +424,30 @@ if (!gotLock) {
       return net.fetch(pathToFileURL(file).toString());
     });
 
-    ipcMain.handle('open-dialog', () => openDialog(false));
-    ipcMain.handle('open-dialog-multi', () => openDialog(true));
-    ipcMain.handle('initial-file', () => { const f = pendingFile; pendingFile = null; return f ? readPdf(f) : null; });
+    const parentOf = (e) => BrowserWindow.fromWebContents(e.sender) || focusedWin();
+    ipcMain.handle('open-dialog', (e) => openDialog(false, parentOf(e)));
+    ipcMain.handle('open-dialog-multi', (e) => openDialog(true, parentOf(e)));
+    ipcMain.handle('initial-file', (e) => {
+      const w = BrowserWindow.fromWebContents(e.sender);
+      const pending = w ? pendingOpens.get(w.id) : null;
+      if (w) pendingOpens.delete(w.id);
+      if (!pending) return null;
+      return typeof pending === 'string' ? readPdf(pending) : pending;
+    });
+    // Open a file in a new window: either by path or with the bytes a renderer already holds (drag and drop).
+    ipcMain.handle('open-window', (_e, payload) => {
+      if (payload && typeof payload.path === 'string' && fs.existsSync(payload.path)) createWindow({ open: payload.path });
+      else if (payload && payload.data) createWindow({ open: { name: payload.name || 'document.pdf', path: '', data: Buffer.from(payload.data) } });
+      else createWindow();
+      return true;
+    });
     const KIND_FILTERS = {
       pdf: ['PDF documents', ['pdf']], markdown: ['Markdown', ['md']], zip: ['Zip archive', ['zip']], docx: ['Word document', ['docx']],
-      txt: ['Text file', ['txt']], html: ['Web page', ['html']], png: ['PNG image', ['png']], jpg: ['JPEG image', ['jpg', 'jpeg']],
+      txt: ['Text file', ['txt']], html: ['Web page', ['html']], png: ['PNG image', ['png']], jpg: ['JPEG image', ['jpg', 'jpeg']], any: ['All files', ['*']],
     };
-    ipcMain.handle('save-file', async (_e, { name, data, defaultPath, kind }) => {
+    ipcMain.handle('save-file', async (e, { name, data, defaultPath, kind }) => {
       const [label, exts] = KIND_FILTERS[kind] || KIND_FILTERS.pdf;
-      const r = await dialog.showSaveDialog(win, {
+      const r = await dialog.showSaveDialog(parentOf(e), {
         title: kind === 'markdown' ? 'Save Markdown' : kind && kind !== 'pdf' ? `Save ${label}` : 'Save PDF',
         defaultPath: defaultPath || name || `document.${exts[0]}`,
         filters: [{ name: label, extensions: exts }],
@@ -397,8 +457,8 @@ if (!gotLock) {
       catch (err) { dialog.showErrorBox('Could not save', err.message); return { ok: false }; }
     });
     // Save several files into a folder the user picks (page images, split documents).
-    ipcMain.handle('save-many', async (_e, { files, title }) => {
-      const r = await dialog.showOpenDialog(win, { title: title || 'Choose a folder', properties: ['openDirectory', 'createDirectory'] });
+    ipcMain.handle('save-many', async (e, { files, title }) => {
+      const r = await dialog.showOpenDialog(parentOf(e), { title: title || 'Choose a folder', properties: ['openDirectory', 'createDirectory'] });
       if (r.canceled || !r.filePaths[0]) return { ok: false };
       const dir = r.filePaths[0];
       let count = 0;
@@ -429,9 +489,9 @@ if (!gotLock) {
     });
     ipcMain.handle('tts-stop', () => { stopEngines(); return true; });
 
-    pendingFile = pdfFromArgv(process.argv);
-    buildMenu();
-    createWindow();
+    const first = pdfFromArgv(process.argv);
+    pendingOpensSource = first;
+    createWindow({ open: first });
     if (!process.argv.some((a) => a.startsWith('--smoke'))) startUpdateChecks();
 
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
